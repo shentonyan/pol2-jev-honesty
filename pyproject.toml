@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pol2-jev-honesty"
+version = "0.1.0"
+description = "Measuring PoL2 honesty and publicness with Jev (OpenJEV) typed judgments — probes, metamorphic tests, sycophancy conditions, drift sentinel, public ledger."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+joh = "joh.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["live: 调用真实 OpenJEV API（需要 OPENJEV_API_KEY）"]
+addopts = "-m 'not live'"
