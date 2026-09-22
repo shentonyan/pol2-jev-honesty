@@ -81,3 +81,13 @@ def test_failure_details_recorded(honesty, example_state):
     rep = run_metamorphic(MockClient(position_bias=2.0), honesty, example_state, "zh", ("reverse",))
     d = rep["transforms"]["reverse"]["questions"]["false_image"]
     assert "base" in d and "variant" in d and "score_delta_norm" in d
+
+
+def test_ambiguity_stratification(root, honesty):
+    from joh.drift import load_canary
+    from joh.metamorphic import ambiguity, run_metamorphic_many
+    assert ambiguity({"type": "noul", "noul": 0.5}) == 1.0
+    assert ambiguity({"type": "choice", "probs": [1.0, 0.0, 0.0]}) == 0.0
+    rep = run_metamorphic_many(MockClient(), honesty, load_canary(root / "data/canary"), "zh", ("repeat", "shuffle"))
+    sa = rep["structural_by_ambiguity"]
+    assert sa["confident"]["n"] + sa["ambiguous"]["n"] == 8

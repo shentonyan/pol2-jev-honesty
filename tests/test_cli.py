@@ -76,5 +76,5 @@ def test_metamorphic_many_states(run, capsys):
 
 
 def test_metamorphic_prints_failure_details(run, capsys):
-    run("metamorphic", "--transforms", "repeat,reverse", extra=["--mock-position-bias", "2"])
+    run("metamorphic", "--probe", "probes/honesty_v1.json", "--state", "data/example_state.json", "--transforms", "repeat,reverse", extra=["--mock-position-bias", "2"])
     assert "└ false_image" in capsys.readouterr().out

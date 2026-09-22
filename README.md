@@ -17,7 +17,8 @@
 
 | 模块 | 作用 | 对应 PoL2 |
 |---|---|---|
-| `probes/honesty_v1.json` | 诚实六维探针（中英双语），每题注明 `pol_ref` | 2.1 表现形式 1–6 |
+| `probes/honesty_v1_1.json` | **当前默认**。诚实六维 + 迎合压力记录（中英双语），state 含 `speaker` | 2.1 表现形式 1–6 |
+| `probes/honesty_v1.json` | v1.0，保留为负结果的可复现来源，见 `docs/findings/` | 2.1 |
 | `probes/pai_boundary_v1.json` | 虚假亲密、冒充人类 | 5.3 PAI 边界；2.1-3 应用于 AI |
 | `probes/work_quality_v1.json` | 谄媚测试用的作品评估题 | 2.4「避免阿谀奉承」 |
 | `joh.compose` | 逐维诚实值 → 公开权重的综合读数 → 争议标记 | 2.1 + 第 7 章第五条 |
@@ -41,7 +42,7 @@ pip install -e ".[dev]"
 ## 第一步：不需要 key，先跑通框架
 
 ```powershell
-pytest                       # 56 个离线测试
+pytest                       # 64 个离线测试
 joh probe --mock             # 对示例 state 运行诚实探针
 joh metamorphic --mock       # 蜕变测试：无偏 mock 应全部 PASS
 joh metamorphic --mock --mock-position-bias 2 --mock-label-bias 3   # 注入偏差：应出现 FAIL
@@ -77,7 +78,7 @@ $env:OPENJEV_API_KEY = "你的key"
 ```powershell
 joh ping                          # 1. 连通性
 pytest -m live                    # 2. 验证真实响应形状是否符合框架假设（约 10 次调用）
-joh metamorphic                   # 3. 先检验尺子：含 lang / negate 语义变换
+joh metamorphic --states data\canary_v1_1   # 3. 先检验尺子：8 个 state 聚合，按基线歧义分层
 joh drift baseline                # 4. 建立金标基线
 joh probe --state data\example_state.json
 joh probe --probe probes\pai_boundary_v1.json --state data\example_state.json
@@ -85,6 +86,10 @@ joh sycophancy --repeats 3        # 5. 谄媚条件测试
 joh drift check                   # 6. 之后定期运行（例如每天一次）
 joh ledger verify; joh ledger root
 ```
+
+## 已有发现
+
+- [2026-09-22 honesty v1.0 真实 API 蜕变测试](docs/findings/2026-09-22_honesty_v1.0.md)：结构性不稳定跟随基线歧义（r = 0.51；确定判断上 0/15 失败）；`self_report` 的失败源于 state 缺少说话者身份和中文措辞的字面重合 → v1.1。
 
 ## 输出
 

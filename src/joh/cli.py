@@ -112,6 +112,12 @@ def cmd_metamorphic(args):
             wq = r["questions"][w]
             note = "" if r["counts_toward_verdict"] else "  （mock：不计入）"
             print(f"  {name:<14}{r['fail_rate']:>8.0%}{r['mean_delta']:>9.3f}   {w}（{wq['mean_delta']:.3f} / {wq['fail_rate']:.0%}）{note}")
+        sa = rep["structural_by_ambiguity"]
+        print(f"\n结构性变换按基线歧义分层（归一化熵 ≥ {sa['cut']} 为「歧义」）：")
+        for k, lab in (("confident", "基线确定"), ("ambiguous", "基线歧义")):
+            v = sa[k]
+            if v["n"]:
+                print(f"  {lab}  n={v['n']:<3} 平均Δ={v['mean_delta']:.3f}  失败率={v['fail_rate']:.0%}")
         print("\n逐题明细见保存的 JSON（aggregate.<变换>.questions）。")
         p = _save(args, "metamorphic_many", rep, c)
         print(f"已保存 {p}")
@@ -213,13 +219,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("ping", parents=[common], help="检查 key 与连通性").set_defaults(fn=cmd_ping)
 
     p = sub.add_parser("probe", parents=[common], help="对一个 state 运行探针并组合读数")
-    p.add_argument("--probe", default="probes/honesty_v1.json")
-    p.add_argument("--state", default="data/example_state.json")
+    p.add_argument("--probe", default="probes/honesty_v1_1.json")
+    p.add_argument("--state", default="data/example_state_v1_1.json")
     p.set_defaults(fn=cmd_probe)
 
     p = sub.add_parser("metamorphic", parents=[common], help="裁判自身的蜕变测试")
-    p.add_argument("--probe", default="probes/honesty_v1.json")
-    p.add_argument("--state", default="data/example_state.json")
+    p.add_argument("--probe", default="probes/honesty_v1_1.json")
+    p.add_argument("--state", default="data/example_state_v1_1.json")
     p.add_argument("--transforms", default=",".join(STRUCTURAL + SEMANTIC),
                    help=f"逗号分隔；结构性 {','.join(STRUCTURAL)}；语义性 {','.join(SEMANTIC)}")
     p.add_argument("--states", default=None, help="金标集目录或文件：对其中每个 state 运行并聚合（覆盖 --state）")
@@ -234,8 +240,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("drift", parents=[common], help="漂移哨兵：baseline 建基线 / check 对比")
     p.add_argument("action", choices=["baseline", "check"])
-    p.add_argument("--probe", default="probes/honesty_v1.json")
-    p.add_argument("--canary", default="data/canary")
+    p.add_argument("--probe", default="probes/honesty_v1_1.json")
+    p.add_argument("--canary", default="data/canary_v1_1")
     p.add_argument("--baseline", default=None)
     p.add_argument("--threshold", type=float, default=0.05)
     p.set_defaults(fn=cmd_drift)

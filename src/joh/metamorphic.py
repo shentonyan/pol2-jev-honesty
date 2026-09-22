@@ -69,6 +69,15 @@ def delta(c0: dict, c1: dict) -> dict:
     return out
 
 
+def ambiguity(c: dict) -> float:
+    """基线分布的归一化熵，0 = 完全确定，1 = 完全不确定。noul 视为二元分布。"""
+    import math
+    ps = [1.0 - c["noul"], c["noul"]] if c["type"] == "noul" else c["probs"]
+    ps = [p for p in ps if p > 0]
+    n = 2 if c["type"] == "noul" else len(c["probs"])
+    return -sum(p * math.log2(p) for p in ps) / math.log2(n) if n > 1 else 0.0
+
+
 def brief(c: dict) -> Any:
     """便于人读的值：noul → 概率；score → 分数；choice → 概率列表（原始顺序）。"""
     if c["type"] == "noul":
@@ -193,6 +202,7 @@ def run_metamorphic(
             d = delta(base_c[qid], mapped)
             d["pass"] = d["delta"] <= tolerance
             d["base"] = brief(base_c[qid])
+            d["base_ambiguity"] = round(ambiguity(base_c[qid]), 4)
             d["variant"] = brief(mapped)  # 已映射回原始标签空间
             per_q[qid] = d
         results[name] = {
@@ -229,6 +239,7 @@ def run_metamorphic_many(
     transforms: tuple[str, ...] = STRUCTURAL,
     tolerance: float = 0.10,
     seed: str = "mm",
+    ambiguity_cut: float = 0.5,
 ) -> dict:
     """对多个 state 运行蜕变测试并聚合：每个 (变换, 问题) 的失败率、平均/最大 Δ、超出各自噪声底线的平均量。"""
     per_state = {}
@@ -236,6 +247,7 @@ def run_metamorphic_many(
         per_state[it["id"]] = run_metamorphic(client, probe, it["state"], lang, transforms, tolerance, seed)
 
     agg: dict[str, dict] = {}
+    strata: dict[str, list[float]] = {"confident": [], "ambiguous": []}
     for name in transforms:
         rows: dict[str, list[tuple[float, float | None]]] = {}
         counts = True
@@ -246,6 +258,9 @@ def run_metamorphic_many(
             counts = counts and r["counts_toward_verdict"]
             for qid, d in r["questions"].items():
                 rows.setdefault(qid, []).append((d["delta"], rep["noise_floor"]))
+                if name in STRUCTURAL and name != "repeat":
+                    key = "ambiguous" if d.get("base_ambiguity", 0) >= ambiguity_cut else "confident"
+                    strata[key].append(d["delta"])
         if not rows:
             agg[name] = {"applicable": False}
             continue
@@ -270,6 +285,10 @@ def run_metamorphic_many(
             "questions": qstats,
         }
     noises = [r["noise_floor"] for r in per_state.values() if r["noise_floor"] is not None]
+    by_ambiguity = {
+        k: {"n": len(v), "mean_delta": sum(v) / len(v) if v else None, "fail_rate": sum(x > tolerance for x in v) / len(v) if v else None}
+        for k, v in strata.items()
+    }
     return {
         "probe": f"{probe.id}@{probe.version}",
         "lang": lang,
@@ -278,5 +297,6 @@ def run_metamorphic_many(
         "noise_floor_mean": sum(noises) / len(noises) if noises else None,
         "noise_floor_max": max(noises) if noises else None,
         "aggregate": agg,
+        "structural_by_ambiguity": {"cut": ambiguity_cut, **by_ambiguity},
         "per_state": per_state,
     }
