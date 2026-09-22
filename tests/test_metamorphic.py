@@ -64,3 +64,20 @@ def test_semantic_transforms_do_not_count_under_mock(honesty, example_state):
     rep = run_metamorphic(MockClient(), honesty, example_state, "zh", STRUCTURAL + ("lang", "negate"))
     assert rep["transforms"]["lang"]["counts_toward_verdict"] is False
     assert rep["all_pass"]
+
+
+def test_many_states_aggregate(root, honesty):
+    from joh.drift import load_canary
+    from joh.metamorphic import run_metamorphic_many
+    items = load_canary(root / "data/canary")
+    rep = run_metamorphic_many(MockClient(position_bias=2.0), honesty, items, "zh", ("repeat", "shuffle", "permute_state"))
+    a = rep["aggregate"]
+    assert rep["n_states"] == len(items)
+    assert a["repeat"]["fail_rate"] == 0 and a["permute_state"]["fail_rate"] == 0
+    assert a["shuffle"]["fail_rate"] > 0 and a["shuffle"]["worst_question"] == "constructive_truth"
+
+
+def test_failure_details_recorded(honesty, example_state):
+    rep = run_metamorphic(MockClient(position_bias=2.0), honesty, example_state, "zh", ("reverse",))
+    d = rep["transforms"]["reverse"]["questions"]["false_image"]
+    assert "base" in d and "variant" in d and "score_delta_norm" in d

@@ -69,6 +69,15 @@ def delta(c0: dict, c1: dict) -> dict:
     return out
 
 
+def brief(c: dict) -> Any:
+    """便于人读的值：noul → 概率；score → 分数；choice → 概率列表（原始顺序）。"""
+    if c["type"] == "noul":
+        return round(c["noul"], 4)
+    if c["type"] == "score":
+        return round(c["score"], 4)
+    return [round(p, 4) for p in c["probs"]]
+
+
 Mapper = Callable[[dict], dict]
 
 
@@ -180,8 +189,11 @@ def run_metamorphic(
         ans = client.systemone(st, qs)["answers"]
         per_q = {}
         for qid in qs:
-            d = delta(base_c[qid], mappers[qid](ans[qid]))
+            mapped = mappers[qid](ans[qid])
+            d = delta(base_c[qid], mapped)
             d["pass"] = d["delta"] <= tolerance
+            d["base"] = brief(base_c[qid])
+            d["variant"] = brief(mapped)  # 已映射回原始标签空间
             per_q[qid] = d
         results[name] = {
             "applicable": True,
@@ -206,4 +218,65 @@ def run_metamorphic(
         "noise_floor": noise,
         "transforms": results,
         "all_pass": all(r["pass"] for r in results.values() if r["counts_toward_verdict"]),
+    }
+
+
+def run_metamorphic_many(
+    client,
+    probe: Probe,
+    items: list[dict],
+    lang: str = "zh",
+    transforms: tuple[str, ...] = STRUCTURAL,
+    tolerance: float = 0.10,
+    seed: str = "mm",
+) -> dict:
+    """对多个 state 运行蜕变测试并聚合：每个 (变换, 问题) 的失败率、平均/最大 Δ、超出各自噪声底线的平均量。"""
+    per_state = {}
+    for it in items:
+        per_state[it["id"]] = run_metamorphic(client, probe, it["state"], lang, transforms, tolerance, seed)
+
+    agg: dict[str, dict] = {}
+    for name in transforms:
+        rows: dict[str, list[tuple[float, float | None]]] = {}
+        counts = True
+        for rep in per_state.values():
+            r = rep["transforms"].get(name, {})
+            if not r.get("applicable"):
+                continue
+            counts = counts and r["counts_toward_verdict"]
+            for qid, d in r["questions"].items():
+                rows.setdefault(qid, []).append((d["delta"], rep["noise_floor"]))
+        if not rows:
+            agg[name] = {"applicable": False}
+            continue
+        qstats = {}
+        for qid, xs in rows.items():
+            ds = [x for x, _ in xs]
+            ex = [x - (n or 0.0) for x, n in xs]
+            qstats[qid] = {
+                "n": len(ds),
+                "fail_rate": sum(x > tolerance for x in ds) / len(ds),
+                "mean_delta": sum(ds) / len(ds),
+                "max_delta": max(ds),
+                "mean_excess_over_noise": sum(ex) / len(ex),
+            }
+        all_d = [x for xs in rows.values() for x, _ in xs]
+        agg[name] = {
+            "applicable": True,
+            "counts_toward_verdict": counts,
+            "fail_rate": sum(x > tolerance for x in all_d) / len(all_d),
+            "mean_delta": sum(all_d) / len(all_d),
+            "worst_question": max(qstats, key=lambda q: qstats[q]["mean_delta"]),
+            "questions": qstats,
+        }
+    noises = [r["noise_floor"] for r in per_state.values() if r["noise_floor"] is not None]
+    return {
+        "probe": f"{probe.id}@{probe.version}",
+        "lang": lang,
+        "tolerance": tolerance,
+        "n_states": len(items),
+        "noise_floor_mean": sum(noises) / len(noises) if noises else None,
+        "noise_floor_max": max(noises) if noises else None,
+        "aggregate": agg,
+        "per_state": per_state,
     }

@@ -12,7 +12,7 @@ from .client import JevError, MockClient, load_dotenv, make_client
 from .compose import readout
 from .drift import compare, gold_agreement, load_canary, snapshot
 from .ledger import Ledger, LedgeredClient
-from .metamorphic import SEMANTIC, STRUCTURAL, run_metamorphic
+from .metamorphic import SEMANTIC, STRUCTURAL, run_metamorphic, run_metamorphic_many
 from .probes import load_json, load_probe
 from .sycophancy import run_sycophancy
 
@@ -81,17 +81,45 @@ def cmd_probe(args):
     print(f"\n已保存 {p}")
 
 
+def _fmt(v):
+    if isinstance(v, list):
+        return "[" + ", ".join(f"{x:.2f}" for x in v) + "]"
+    return f"{v:.3f}"
+
+
 def cmd_metamorphic(args):
     probe = load_probe(args.probe)
-    state = load_json(args.state)
     ts = tuple(t for t in args.transforms.split(",") if t)
     bad = set(ts) - set(STRUCTURAL) - set(SEMANTIC)
     if bad:
         sys.exit(f"未知变换：{sorted(bad)}；可用：{STRUCTURAL + SEMANTIC}")
     c = _client(args, "metamorphic", {"probe": f"{probe.id}@{probe.version}"})
     _banner(c)
+
+    if args.states:
+        items = load_canary(args.states)
+        calls = len(items) * (1 + len(ts))
+        print(f"对 {len(items)} 个 state 运行，约 {calls} 次调用……\n")
+        rep = run_metamorphic_many(c, probe, items, args.lang, ts, args.tol)
+        print(f"蜕变测试（聚合）{rep['probe']}  n={rep['n_states']}  容差 {rep['tolerance']}  "
+              f"噪声底线 均值 {rep['noise_floor_mean']:.3f} / 最大 {rep['noise_floor_max']:.3f}")
+        print(f"  {'变换':<14}{'失败率':>8}{'平均Δ':>9}   最差问题（平均Δ / 失败率）")
+        for name, r in rep["aggregate"].items():
+            if not r.get("applicable"):
+                print(f"  {name:<14}不适用")
+                continue
+            w = r["worst_question"]
+            wq = r["questions"][w]
+            note = "" if r["counts_toward_verdict"] else "  （mock：不计入）"
+            print(f"  {name:<14}{r['fail_rate']:>8.0%}{r['mean_delta']:>9.3f}   {w}（{wq['mean_delta']:.3f} / {wq['fail_rate']:.0%}）{note}")
+        print("\n逐题明细见保存的 JSON（aggregate.<变换>.questions）。")
+        p = _save(args, "metamorphic_many", rep, c)
+        print(f"已保存 {p}")
+        return
+
+    state = load_json(args.state)
     rep = run_metamorphic(c, probe, state, args.lang, ts, args.tol)
-    print(f"蜕变测试 {rep['probe']}  容差 {rep['tolerance']}  噪声底线 {rep['noise_floor']}")
+    print(f"蜕变测试 {rep['probe']}  容差 {rep['tolerance']}  噪声底线 {rep['noise_floor']:.3f}")
     for name, r in rep["transforms"].items():
         if not r.get("applicable"):
             print(f"  {name:<14} 不适用")
@@ -100,7 +128,12 @@ def cmd_metamorphic(args):
         worst = max(r["questions"], key=lambda q: r["questions"][q]["delta"])
         note = "" if r["counts_toward_verdict"] else "   （mock 不理解语言：不计入结论）"
         print(f"  {name:<14} {mark}  max Δ={r['max_delta']:.3f}（{worst}）{note}")
+        for qid, d in r["questions"].items():
+            if not d["pass"]:
+                extra = f"  归一化分差 {d['score_delta_norm']:.3f}" if "score_delta_norm" in d else ""
+                print(f"      └ {qid}: 原始 {_fmt(d['base'])} → 变换后 {_fmt(d['variant'])}  Δ={d['delta']:.3f}{extra}")
     print(f"\n总体：{'全部通过' if rep['all_pass'] else '存在不一致（负结果同样要公开）'}")
+    print("提示：单个 state 不足以下结论，建议加 --states data/canary 做聚合。")
     p = _save(args, "metamorphic", rep, c)
     print(f"已保存 {p}")
 
@@ -189,6 +222,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--state", default="data/example_state.json")
     p.add_argument("--transforms", default=",".join(STRUCTURAL + SEMANTIC),
                    help=f"逗号分隔；结构性 {','.join(STRUCTURAL)}；语义性 {','.join(SEMANTIC)}")
+    p.add_argument("--states", default=None, help="金标集目录或文件：对其中每个 state 运行并聚合（覆盖 --state）")
     p.add_argument("--tol", type=float, default=0.10)
     p.set_defaults(fn=cmd_metamorphic)
 

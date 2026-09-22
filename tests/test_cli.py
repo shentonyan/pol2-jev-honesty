@@ -67,3 +67,14 @@ def test_live_without_key_fails_clearly(root, monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as e:
         main(["probe", "--probe", str(root / "probes/honesty_v1.json"), "--state", str(root / "data/example_state.json"), "--no-ledger"])
     assert "OPENJEV_API_KEY" in str(e.value.code)
+
+
+def test_metamorphic_many_states(run, capsys):
+    run("metamorphic", "--states", "data/canary", "--transforms", "repeat,shuffle,reverse")
+    out = capsys.readouterr().out
+    assert "聚合" in out and "失败率" in out
+
+
+def test_metamorphic_prints_failure_details(run, capsys):
+    run("metamorphic", "--transforms", "repeat,reverse", extra=["--mock-position-bias", "2"])
+    assert "└ false_image" in capsys.readouterr().out
