@@ -46,3 +46,21 @@ def test_v1_1_fixes(root):
     assert p.questions["pleasing_pressure"]["polarity"] == "raw"
     items = json.loads((root / "data/canary_v1_1/honesty_canary_v1_1.json").read_text(encoding="utf-8"))
     assert all(it["state"]["speaker"] for it in items)
+
+
+def test_flat_ablation_matches_structured_content(root):
+    s = load_probe(root / "probes/honesty_v1_1.json")
+    f = load_probe(root / "probes/honesty_v1_1_flat.json")
+    assert list(s.questions) == list(f.questions)
+    for qid, q in s.questions.items():
+        for lang in ("zh", "en"):
+            a, b = q[lang].get("criteria"), f.questions[qid][lang].get("criteria")
+            if q["type"] == "choice":
+                assert list(a) == list(b)
+                for k, v in a.items():
+                    assert isinstance(b[k], str)
+                    if isinstance(v, dict):
+                        assert v["covers"] in b[k] and (not v.get("excludes") or v["excludes"] in b[k])
+            else:
+                assert a == b
+            assert q[lang]["instructions"] == f.questions[qid][lang]["instructions"]
