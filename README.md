@@ -17,8 +17,8 @@
 
 | 模块 | 作用 | 对应 PoL2 |
 |---|---|---|
-| `probes/honesty_v1_1.json` | **当前默认**。诚实六维 + 迎合压力记录（中英双语），state 含 `speaker` | 2.1 表现形式 1–6 |
-| `probes/honesty_v1_2.json` | 候选版：「不适用」改为独立门控题（`gate`），选项描述用字符串 | 2.1 |
+| `probes/honesty_v1_1.json` | 诚实六维 + 迎合压力记录（中英双语），state 含 `speaker` | 2.1 表现形式 1–6 |
+| `probes/honesty_v1_2.json` | **当前默认**。「不适用」改为独立门控题（`gate`），选项描述用字符串 | 2.1 表现形式 1–6 |
 | `probes/honesty_v1_1_flat.json` | 消融对照：内容同 v1.1，选项描述压平为字符串 | — |
 | `probes/honesty_v1.json` | v1.0，保留为负结果的可复现来源，见 `docs/findings/` | 2.1 |
 | `probes/pai_boundary_v1.json` | 虚假亲密、冒充人类 | 5.3 PAI 边界；2.1-3 应用于 AI |
@@ -93,6 +93,7 @@ joh ledger verify; joh ledger root
 
 - [2026-09-22 honesty v1.0 真实 API 蜕变测试](docs/findings/2026-09-22_honesty_v1.0.md)：结构性不稳定跟随基线歧义（r = 0.51；确定判断上 0/15 失败）；`self_report` 的失败源于 state 缺少说话者身份和中文措辞的字面重合 → v1.1。
 - [2026-09-22 honesty v1.1](docs/findings/2026-09-22_honesty_v1.1.md)：`fabricated_experience` 修复（18/18，中英一致）；选择题的结构稳健性退步，主因是「不适用」选项与实质选项互相拉扯 → v1.2 门控；对象式选项描述的影响待消融检验（`scripts_run_comparison.ps1`）。
+- [2026-09-22 同时段对照 v1.1 / flat / v1.2](docs/findings/2026-09-22_honesty_v1.2_comparison.md)：格式影响很小；门控使 10 次失败中有 6 次落在不计分的 state，其余 4 次均为难例 c02；v1.2 设为默认。
 
 ## 输出
 

@@ -219,12 +219,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("ping", parents=[common], help="检查 key 与连通性").set_defaults(fn=cmd_ping)
 
     p = sub.add_parser("probe", parents=[common], help="对一个 state 运行探针并组合读数")
-    p.add_argument("--probe", default="probes/honesty_v1_1.json")
+    p.add_argument("--probe", default="probes/honesty_v1_2.json")
     p.add_argument("--state", default="data/example_state_v1_1.json")
     p.set_defaults(fn=cmd_probe)
 
     p = sub.add_parser("metamorphic", parents=[common], help="裁判自身的蜕变测试")
-    p.add_argument("--probe", default="probes/honesty_v1_1.json")
+    p.add_argument("--probe", default="probes/honesty_v1_2.json")
     p.add_argument("--state", default="data/example_state_v1_1.json")
     p.add_argument("--transforms", default=",".join(STRUCTURAL + SEMANTIC),
                    help=f"逗号分隔；结构性 {','.join(STRUCTURAL)}；语义性 {','.join(SEMANTIC)}")
@@ -240,7 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("drift", parents=[common], help="漂移哨兵：baseline 建基线 / check 对比")
     p.add_argument("action", choices=["baseline", "check"])
-    p.add_argument("--probe", default="probes/honesty_v1_1.json")
+    p.add_argument("--probe", default="probes/honesty_v1_2.json")
     p.add_argument("--canary", default="data/canary_v1_1")
     p.add_argument("--baseline", default=None)
     p.add_argument("--threshold", type=float, default=0.05)
