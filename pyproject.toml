@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pol2-jev-honesty"
-version = "0.2.1"
+version = "0.3.0"
 description = "Measuring PoL2 honesty and publicness with Jev (OpenJEV) typed judgments — probes, metamorphic tests, sycophancy conditions, drift sentinel, public ledger."
 readme = "README.md"
 requires-python = ">=3.10"

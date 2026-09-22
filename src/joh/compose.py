@@ -84,6 +84,12 @@ def readout(probe: Probe, answers: dict, lang: str = "zh", min_applicability: fl
             continue
         a = answers[qid]
         dv = dimension_value(q, a, q[lang].get("criteria"))
+        gate = q.get("gate")
+        if gate:
+            # 门控：适用度 = 门控 noul 为「是」的概率（由另一道独立问题给出）
+            if gate not in answers or answers[gate].get("noul") is None:
+                raise ValueError(f"{qid}: 门控问题 {gate} 的答案缺失")
+            dv["applicability"] = min(dv["applicability"], float(answers[gate]["noul"]))
         reasons = contested_reasons(probe, q, a)
         applicable = dv["value"] is not None and dv["applicability"] >= min_applicability
         if dv["value"] is not None and not applicable:
@@ -95,6 +101,7 @@ def readout(probe: Probe, answers: dict, lang: str = "zh", min_applicability: fl
             "raw": dv["raw"],
             "applicability": dv["applicability"],
             "weight": float(q.get("weight", 1.0)),
+            "gate": gate,
             "contested": bool(reasons),
             "reasons": reasons,
         }

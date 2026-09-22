@@ -4,7 +4,7 @@ from joh.probes import load_probe
 from joh.schema import ALLOWED_QUESTION_KEYS
 
 
-@pytest.mark.parametrize("name", ["honesty_v1", "honesty_v1_1", "pai_boundary_v1", "work_quality_v1"])
+@pytest.mark.parametrize("name", ["honesty_v1", "honesty_v1_1", "honesty_v1_1_flat", "honesty_v1_2", "pai_boundary_v1", "work_quality_v1"])
 @pytest.mark.parametrize("lang", ["zh", "en"])
 def test_probe_files_build_clean_payloads(root, name, lang):
     p = load_probe(root / f"probes/{name}.json")

@@ -11,7 +11,7 @@
 - ledger      公共判决账本（哈希链 + Merkle root）
 """
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 HONESTY_CLAUSE = (
     "诚实条款：本结果来自单一闭源模型（Jev，经 OpenJEV 的浮动别名 `openjev` 调用）对合成样本的类型化判断。"

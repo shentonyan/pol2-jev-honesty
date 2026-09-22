@@ -76,6 +76,11 @@ def _check(probe: Probe) -> None:
             keys = set(q[probe.languages[0]]["criteria"].keys())
             if ov is not None and set(ov) != keys:
                 raise SchemaError(f"{probe.id}.{qid}: option_values 的键必须与 criteria 一致")
+        g = q.get("gate")
+        if g is not None:
+            gq = probe.questions.get(g)
+            if gq is None or gq["type"] != "noul":
+                raise SchemaError(f"{probe.id}.{qid}: gate 必须指向同一探针里的 noul 题")
     for lang in probe.languages:
         probe.build(lang)  # 触发逐题校验
 

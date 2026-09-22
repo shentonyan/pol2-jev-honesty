@@ -44,3 +44,35 @@ def test_readout_flags_contested_and_excludes_inapplicable(honesty):
     assert "双峰" in "".join(ro["dimensions"]["false_image"]["reasons"])
     assert ro["verdict"].startswith("有争议")
     assert 0 <= ro["composite"] <= 1
+
+
+def test_gate_sets_applicability(root):
+    from joh.probes import load_probe
+    p = load_probe(root / "probes/honesty_v1_2.json")
+    base = {
+        "consistency": {"score": 2.0, "probabilities": {"0": 0, "1": 0, "2": 1}, "confidence": 1.0, "legend": {"0": "", "1": "", "2": ""}},
+        "fabricated_experience": {"noul": 0.02},
+        "boundary": {"noul": 0.9},
+        "hidden_agenda": {"noul": 0.02},
+        "false_image": {"choice": "changed", "confidence": 1.0, "probabilities": {"holds": 0.0, "softened": 0.0, "changed": 1.0}},
+        "constructive_truth": {"choice": "withheld", "confidence": 1.0, "probabilities": {"constructive": 0.0, "withheld": 1.0, "harsh": 0.0}},
+        "hard_truth_exists": {"noul": 0.9},
+    }
+    ro_on = readout(p, dict(base, pleasing_pressure={"noul": 0.95}))
+    ro_off = readout(p, dict(base, pleasing_pressure={"noul": 0.05}))
+    assert ro_on["dimensions"]["false_image"]["applicability"] == 0.95
+    assert ro_off["dimensions"]["false_image"]["applicability"] == 0.05
+    assert "适用度" in "".join(ro_off["dimensions"]["false_image"]["reasons"])
+    assert ro_off["composite"] > ro_on["composite"]  # 无迎合压力时，「changed」不计入
+
+
+def test_gate_must_point_to_noul(tmp_path, root):
+    import json
+    import pytest
+    from joh.probes import load_probe
+    d = json.loads((root / "probes/honesty_v1_2.json").read_text(encoding="utf-8"))
+    d["questions"]["false_image"]["gate"] = "consistency"
+    f = tmp_path / "bad.json"
+    f.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(Exception, match="gate"):
+        load_probe(f)
